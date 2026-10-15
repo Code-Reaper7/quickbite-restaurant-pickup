@@ -442,224 +442,7 @@
     </aside>
 
     <script>
-      const restaurants = [
-        {
-          name: "Basil & Board",
-          type: "Italian · Pizza",
-          distance: "0.8 mi away",
-          initials: "B&B",
-          color: "#d95d39",
-          meals: [
-            {
-              name: "Margherita Pizza",
-              ingredients: "Tomato, mozzarella, basil",
-              price: 14.5,
-              image: "🍕",
-            },
-            {
-              name: "Creamy Pesto Pasta",
-              ingredients: "Penne, pesto, parmesan",
-              price: 13.25,
-              image: "🍝",
-            },
-            {
-              name: "Garlic Knots",
-              ingredients: "Garlic butter, herbs, parmesan",
-              price: 6.0,
-              image: "🥖",
-            },
-          ],
-        },
-        {
-          name: "Green Fork Kitchen",
-          type: "Healthy · Bowls",
-          distance: "1.1 mi away",
-          initials: "GF",
-          color: "#4b8d66",
-          meals: [
-            {
-              name: "Harvest Grain Bowl",
-              ingredients: "Quinoa, greens, sweet potato",
-              price: 12.75,
-              image: "🥗",
-            },
-            {
-              name: "Avocado Toast",
-              ingredients: "Sourdough, avocado, chili flakes",
-              price: 9.5,
-              image: "🥑",
-            },
-            {
-              name: "Berry Yogurt Cup",
-              ingredients: "Greek yogurt, berries, granola",
-              price: 7.25,
-              image: "🫐",
-            },
-          ],
-        },
-        {
-          name: "Seoul Table",
-          type: "Korean · Comfort food",
-          distance: "1.4 mi away",
-          initials: "ST",
-          color: "#7c5ba7",
-          meals: [
-            {
-              name: "Bulgogi Rice Bowl",
-              ingredients: "Beef, rice, pickled vegetables",
-              price: 15.0,
-              image: "🍚",
-            },
-            {
-              name: "Crispy Tofu Bites",
-              ingredients: "Tofu, sweet chili glaze, sesame",
-              price: 8.5,
-              image: "🍢",
-            },
-            {
-              name: "Kimchi Fried Rice",
-              ingredients: "Rice, kimchi, egg, scallions",
-              price: 12.0,
-              image: "🍳",
-            },
-          ],
-        },
-        {
-          name: "The Burger Spot",
-          type: "Burgers · American",
-          distance: "1.7 mi away",
-          initials: "BS",
-          color: "#c58a34",
-          meals: [
-            {
-              name: "Classic Cheeseburger",
-              ingredients: "Beef, cheddar, lettuce, tomato",
-              price: 13.5,
-              image: "🍔",
-            },
-            {
-              name: "Crispy Chicken Sandwich",
-              ingredients: "Chicken, slaw, pickles, sauce",
-              price: 12.75,
-              image: "🍗",
-            },
-            {
-              name: "Sea Salt Fries",
-              ingredients: "Crisp potatoes, sea salt",
-              price: 5.5,
-              image: "🍟",
-            },
-          ],
-        },
-        {
-          name: "Taco Luna",
-          type: "Mexican · Tacos",
-          distance: "2.0 mi away",
-          initials: "TL",
-          color: "#e08a3e",
-          meals: [
-            {
-              name: "Chicken Street Tacos",
-              ingredients: "Chicken, onion, cilantro, lime",
-              price: 11.5,
-              image: "🌮",
-            },
-            {
-              name: "Loaded Nachos",
-              ingredients: "Chips, beans, cheese, salsa",
-              price: 10.0,
-              image: "🧀",
-            },
-            {
-              name: "Churro Bites",
-              ingredients: "Cinnamon sugar, chocolate dip",
-              price: 6.5,
-              image: "🥨",
-            },
-          ],
-        },
-        {
-          name: "Nori House",
-          type: "Japanese · Sushi",
-          distance: "2.2 mi away",
-          initials: "NH",
-          color: "#39798d",
-          meals: [
-            {
-              name: "Salmon Poke Bowl",
-              ingredients: "Salmon, rice, cucumber, avocado",
-              price: 16.5,
-              image: "🍣",
-            },
-            {
-              name: "Spicy Tuna Roll",
-              ingredients: "Tuna, cucumber, spicy mayo",
-              price: 10.5,
-              image: "🍱",
-            },
-            {
-              name: "Edamame",
-              ingredients: "Steamed soybeans, sea salt",
-              price: 5.0,
-              image: "🫛",
-            },
-          ],
-        },
-        {
-          name: "Morning Roast",
-          type: "Breakfast · Cafe",
-          distance: "2.5 mi away",
-          initials: "MR",
-          color: "#91684a",
-          meals: [
-            {
-              name: "Sunrise Breakfast",
-              ingredients: "Eggs, toast, potatoes, bacon",
-              price: 12.0,
-              image: "🍳",
-            },
-            {
-              name: "Blueberry Pancakes",
-              ingredients: "Pancakes, blueberries, maple syrup",
-              price: 10.5,
-              image: "🥞",
-            },
-            {
-              name: "Iced Vanilla Latte",
-              ingredients: "Espresso, milk, vanilla",
-              price: 5.75,
-              image: "☕",
-            },
-          ],
-        },
-        {
-          name: "Cedar & Spice",
-          type: "Mediterranean · Wraps",
-          distance: "2.9 mi away",
-          initials: "CS",
-          color: "#b65d56",
-          meals: [
-            {
-              name: "Chicken Shawarma Wrap",
-              ingredients: "Chicken, hummus, greens, pita",
-              price: 11.75,
-              image: "🌯",
-            },
-            {
-              name: "Falafel Plate",
-              ingredients: "Falafel, tabbouleh, tahini",
-              price: 13.0,
-              image: "🧆",
-            },
-            {
-              name: "Hummus & Pita",
-              ingredients: "Chickpeas, tahini, warm pita",
-              price: 7.5,
-              image: "🫓",
-            },
-          ],
-        },
-      ];
+      let restaurants = [];
 
       let selectedRestaurant = null;
       const cart = [];
@@ -741,8 +524,21 @@
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
 
-      function addToCart(meal) {
-        cart.push({ ...meal, restaurant: selectedRestaurant.name });
+      async function addToCart(meal) {
+        const response = await fetch("/api/cart", {
+          body: JSON.stringify({
+            ...meal,
+            restaurant: selectedRestaurant.name,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          throw new Error("Could not add this meal to the cart.");
+        }
+
+        cart.push(await response.json());
         updateCart();
       }
 
@@ -779,8 +575,42 @@
         cartPanel.classList.remove("open");
       });
 
-      showRestaurants();
-      updateCart();
+      async function loadCart() {
+        const response = await fetch("/api/cart");
+
+        if (!response.ok) {
+          throw new Error("Could not load the cart.");
+        }
+
+        cart.push(...(await response.json()));
+        updateCart();
+      }
+
+      async function loadRestaurants() {
+        const response = await fetch("/api/restaurants");
+
+        if (!response.ok) {
+          throw new Error("Could not load restaurants.");
+        }
+
+        restaurants = await response.json();
+        showRestaurants();
+      }
+
+      function showStorageError(error) {
+        console.error(error);
+        cartItems.innerHTML =
+          '<p class="cart-empty">Cart storage is unavailable. Start QuickBite with Flask to use the cart.</p>';
+      }
+
+      function showRestaurantError(error) {
+        console.error(error);
+        appContent.innerHTML =
+          '<p class="cart-empty">Restaurants are unavailable. Start QuickBite with Flask to browse the menu.</p>';
+      }
+
+      loadCart().catch(showStorageError);
+      loadRestaurants().catch(showRestaurantError);
     </script>
   </body>
 </html>
