@@ -1,13 +1,24 @@
-from pathlib import Path
+import os
 import sqlite3
+from datetime import timedelta
+from pathlib import Path
+from uuid import uuid4
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, session
 
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = BASE_DIR / "quickbite.db"
 
 app = Flask(__name__)
+# Set QUICKBITE_SECRET_KEY in your terminal before starting the app.
+# Keep this key stable across server restarts to preserve signed sessions.
+app.secret_key = os.environ["QUICKBITE_SECRET_KEY"]
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7),
+)
 
 RESTAURANTS = [
     {
@@ -115,12 +126,21 @@ def get_connection():
     return connection
 
 
+def current_cart_id():
+    """Identify a browser's cart using its signed Flask session cookie."""
+    if "cart_id" not in session:
+        session["cart_id"] = uuid4().hex
+        session.permanent = True
+    return session["cart_id"]
+
+
 def initialize_database():
     with get_connection() as connection:
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS cart_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cart_id TEXT NOT NULL,
                 name TEXT NOT NULL,
                 restaurant TEXT NOT NULL,
                 ingredients TEXT NOT NULL,
@@ -128,6 +148,19 @@ def initialize_database():
                 image TEXT NOT NULL
             )
             """
+        )
+
+        # Support a database created by the previous version of QuickBite.
+        # Older cart items will have NULL cart_id and won't appear in new carts.
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(cart_items)")
+        }
+        if "cart_id" not in columns:
+            connection.execute("ALTER TABLE cart_items ADD COLUMN cart_id TEXT")
+
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id "
+            "ON cart_items(cart_id)"
         )
 
 
@@ -149,10 +182,12 @@ def home():
 
 @app.get("/api/cart")
 def get_cart():
+    cart_id = current_cart_id()
     with get_connection() as connection:
         rows = connection.execute(
             "SELECT id, name, restaurant, ingredients, price, image "
-            "FROM cart_items ORDER BY id"
+            "FROM cart_items WHERE cart_id = ? ORDER BY id",
+            (cart_id,),
         ).fetchall()
     return jsonify([cart_item_from_row(row) for row in rows])
 
@@ -178,13 +213,16 @@ def add_cart_item():
     if any(not isinstance(item[field], str) or not item[field].strip() for field in required_fields if field != "price"):
         return jsonify({"error": "Cart item text fields must not be empty."}), 400
 
+    cart_id = current_cart_id()
     with get_connection() as connection:
         cursor = connection.execute(
             """
-            INSERT INTO cart_items (name, restaurant, ingredients, price, image)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO cart_items
+                (cart_id, name, restaurant, ingredients, price, image)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
+                cart_id,
                 item["name"].strip(),
                 item["restaurant"].strip(),
                 item["ingredients"].strip(),
@@ -194,8 +232,8 @@ def add_cart_item():
         )
         saved_item = connection.execute(
             "SELECT id, name, restaurant, ingredients, price, image "
-            "FROM cart_items WHERE id = ?",
-            (cursor.lastrowid,),
+            "FROM cart_items WHERE id = ? AND cart_id = ?",
+            (cursor.lastrowid, cart_id),
         ).fetchone()
 
     return jsonify(cart_item_from_row(saved_item)), 201
@@ -203,8 +241,9 @@ def add_cart_item():
 
 @app.delete("/api/cart")
 def clear_cart():
+    cart_id = current_cart_id()
     with get_connection() as connection:
-        connection.execute("DELETE FROM cart_items")
+        connection.execute("DELETE FROM cart_items WHERE cart_id = ?", (cart_id,))
     return "", 204
 
 

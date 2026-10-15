@@ -543,18 +543,29 @@
       }
 
       function updateCart() {
+        // Store one row per addition, but show repeated items as quantities.
+        const groupedItems = new Map();
+        for (const item of cart) {
+          const key = JSON.stringify([item.restaurant, item.name, item.price]);
+          if (groupedItems.has(key)) {
+            groupedItems.get(key).quantity += 1;
+          } else {
+            groupedItems.set(key, { ...item, quantity: 1 });
+          }
+        }
+
         cartCount.textContent = cart.length;
         cartCount.style.display = cart.length ? "flex" : "none";
         cartItems.innerHTML = cart.length
-          ? cart
+          ? [...groupedItems.values()]
               .map(
                 (item) => `
             <div class="cart-item">
               <div>
                 <div class="cart-item-name">${item.name}</div>
-                <div class="cart-item-restaurant">${item.restaurant}</div>
+                <div class="cart-item-restaurant">${item.restaurant} · Qty: ${item.quantity}</div>
               </div>
-              <div class="cart-item-price">$${item.price.toFixed(2)}</div>
+              <div class="cart-item-price">$${(item.price * item.quantity).toFixed(2)}</div>
             </div>
           `,
               )
