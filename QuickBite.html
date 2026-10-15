@@ -388,12 +388,119 @@
         font-weight: 750;
       }
 
+      .cart-note {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+        margin: -6px 0 12px;
+      }
+
       .cart-total {
         display: flex;
         font-size: 16px;
         font-weight: 800;
         justify-content: space-between;
         padding-top: 16px;
+      }
+
+      .place-order,
+      .confirmation-done {
+        background: var(--accent);
+        border: 0;
+        border-radius: 12px;
+        color: white;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 750;
+        margin-top: 16px;
+        padding: 14px 16px;
+        width: 100%;
+      }
+
+      .place-order:hover,
+      .confirmation-done:hover {
+        background: var(--accent-dark);
+      }
+
+      .place-order:disabled {
+        background: #f0f0f0;
+        color: #9a9a9a;
+        cursor: not-allowed;
+      }
+
+      .order-error {
+        color: #b42318;
+        font-size: 13px;
+        margin: 10px 0 0;
+      }
+
+      .order-dialog {
+        border: 0;
+        border-radius: 18px;
+        max-width: 440px;
+        padding: 24px 22px 22px;
+        width: calc(100% - 32px);
+      }
+
+      .order-dialog::backdrop {
+        background: rgba(20, 20, 20, 0.45);
+      }
+
+      .confirmation-mark {
+        align-items: center;
+        background: #e8f7ee;
+        border-radius: 50%;
+        color: #1f7a45;
+        display: flex;
+        font-size: 28px;
+        font-weight: 800;
+        height: 52px;
+        justify-content: center;
+        margin-bottom: 14px;
+        width: 52px;
+      }
+
+      .confirmation-title {
+        font-size: 26px;
+        letter-spacing: -0.6px;
+        margin: 0 0 8px;
+      }
+
+      .confirmation-copy {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+        margin: 0 0 16px;
+      }
+
+      .confirmation-facts {
+        background: var(--background);
+        border-radius: 12px;
+        display: grid;
+        gap: 10px;
+        margin: 0 0 8px;
+        padding: 12px 14px;
+      }
+
+      .confirmation-facts div {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .confirmation-facts dt {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .confirmation-facts dd {
+        font-size: 14px;
+        font-weight: 750;
+        margin: 0;
+      }
+
+      .status-received {
+        color: #1f7a45;
       }
 
       @media (min-width: 621px) {
@@ -437,9 +544,46 @@
           &times;
         </button>
       </div>
+      <p class="cart-note" id="cartNote" hidden>
+        Review your items, then place your pickup order.
+      </p>
       <div id="cartItems"></div>
       <div class="cart-total" id="cartTotal"></div>
+      <button class="place-order" id="placeOrder" type="button" disabled>
+        Place pickup order
+      </button>
+      <p class="order-error" id="orderError" hidden></p>
     </aside>
+
+    <dialog class="order-dialog" id="orderDialog" aria-labelledby="confirmationTitle">
+      <div class="confirmation-mark" aria-hidden="true">✓</div>
+      <p class="eyebrow">Pickup order</p>
+      <h2 class="confirmation-title" id="confirmationTitle">
+        Order placed successfully
+      </h2>
+      <p class="confirmation-copy">
+        Your order was placed successfully. Show this order ID when you collect
+        your food.
+      </p>
+      <dl class="confirmation-facts">
+        <div>
+          <dt>Order ID</dt>
+          <dd id="confirmationId"></dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd class="status-received" id="confirmationStatus"></dd>
+        </div>
+        <div>
+          <dt>Total</dt>
+          <dd id="confirmationTotal"></dd>
+        </div>
+      </dl>
+      <div id="confirmationItems"></div>
+      <button class="confirmation-done" id="confirmationDone" type="button">
+        Done
+      </button>
+    </dialog>
 
     <script>
       let restaurants = [];
@@ -451,6 +595,15 @@
       const cartItems = document.getElementById("cartItems");
       const cartTotal = document.getElementById("cartTotal");
       const cartCount = document.getElementById("cartCount");
+      const cartNote = document.getElementById("cartNote");
+      const placeOrderButton = document.getElementById("placeOrder");
+      const orderError = document.getElementById("orderError");
+      const orderDialog = document.getElementById("orderDialog");
+      const confirmationId = document.getElementById("confirmationId");
+      const confirmationStatus = document.getElementById("confirmationStatus");
+      const confirmationTotal = document.getElementById("confirmationTotal");
+      const confirmationItems = document.getElementById("confirmationItems");
+      let placingOrder = false;
 
       function showRestaurants() {
         selectedRestaurant = null;
@@ -545,6 +698,8 @@
       function updateCart() {
         cartCount.textContent = cart.length;
         cartCount.style.display = cart.length ? "flex" : "none";
+        cartNote.hidden = cart.length === 0;
+        placeOrderButton.disabled = placingOrder || cart.length === 0;
         cartItems.innerHTML = cart.length
           ? cart
               .map(
@@ -567,12 +722,92 @@
           : "";
       }
 
+      function clearOrderError() {
+        orderError.hidden = true;
+        orderError.textContent = "";
+      }
+
+      function showOrderConfirmation(order) {
+        confirmationId.textContent = `#${order.id}`;
+        confirmationStatus.textContent = order.status;
+        confirmationTotal.textContent = `$${Number(order.total).toFixed(2)}`;
+        confirmationItems.replaceChildren();
+
+        order.items.forEach((item) => {
+          const row = document.createElement("div");
+          row.className = "cart-item";
+
+          const info = document.createElement("div");
+          const name = document.createElement("div");
+          name.className = "cart-item-name";
+          name.textContent = item.name;
+          const restaurant = document.createElement("div");
+          restaurant.className = "cart-item-restaurant";
+          restaurant.textContent = item.restaurant;
+          info.append(name, restaurant);
+
+          const price = document.createElement("div");
+          price.className = "cart-item-price";
+          price.textContent = `$${Number(item.price).toFixed(2)}`;
+
+          row.append(info, price);
+          confirmationItems.append(row);
+        });
+
+        orderDialog.showModal();
+      }
+
+      async function placeOrder() {
+        if (placingOrder || cart.length === 0) {
+          return;
+        }
+
+        placingOrder = true;
+        clearOrderError();
+        updateCart();
+
+        try {
+          const response = await fetch("/api/orders", { method: "POST" });
+          const payload = await response.json().catch(() => ({}));
+
+          if (!response.ok) {
+            orderError.textContent =
+              payload.error || "Could not place your order.";
+            orderError.hidden = false;
+            return;
+          }
+
+          cart.length = 0;
+          updateCart();
+          cartPanel.classList.remove("open");
+          showOrderConfirmation(payload);
+        } catch (error) {
+          console.error(error);
+          orderError.textContent =
+            "Could not place your order. Please try again.";
+          orderError.hidden = false;
+        } finally {
+          placingOrder = false;
+          updateCart();
+        }
+      }
+
       document.getElementById("cartButton").addEventListener("click", () => {
         cartPanel.classList.toggle("open");
       });
 
       document.getElementById("closeCart").addEventListener("click", () => {
         cartPanel.classList.remove("open");
+      });
+
+      placeOrderButton.addEventListener("click", () => {
+        placeOrder().catch((error) => {
+          console.error(error);
+        });
+      });
+
+      document.getElementById("confirmationDone").addEventListener("click", () => {
+        orderDialog.close();
       });
 
       async function loadCart() {

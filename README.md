@@ -17,5 +17,6 @@ Scrum-based restaurant ordering and pickup web application
 
 3. Open `http://127.0.0.1:5000` in a browser.
 
-The Flask backend stores cart items in the local `quickbite.db` SQLite file. The
-database is created automatically the first time the app starts.
+The Flask backend stores cart items and pickup orders in the local `quickbite.db`
+SQLite file. The database is created automatically the first time the app starts.
+Each placed order is saved with a unique order ID and an initial status of Received.
