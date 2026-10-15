@@ -1,4 +1,7 @@
 import os
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
 import sqlite3
 from datetime import timedelta
 from pathlib import Path
@@ -120,10 +123,19 @@ RESTAURANTS = [
 ]
 
 
+@contextmanager
 def get_connection():
     connection = sqlite3.connect(DATABASE_PATH)
-    connection.row_factory = sqlite3.Row
-    return connection
+    try:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def current_cart_id():
@@ -146,6 +158,30 @@ def initialize_database():
                 ingredients TEXT NOT NULL,
                 price REAL NOT NULL CHECK (price >= 0),
                 image TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                status TEXT NOT NULL,
+                total REAL NOT NULL CHECK (total >= 0),
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS order_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                restaurant TEXT NOT NULL,
+                ingredients TEXT NOT NULL,
+                price REAL NOT NULL CHECK (price >= 0),
+                image TEXT NOT NULL,
+                FOREIGN KEY (order_id) REFERENCES orders (id)
             )
             """
         )
@@ -253,6 +289,94 @@ def remove_cart_item(item_id):
         return jsonify({"error": "Item not found in your cart"}), 404
 
     return "", 204
+
+
+def order_item_from_row(row):
+    return {
+        "name": row["name"],
+        "restaurant": row["restaurant"],
+        "ingredients": row["ingredients"],
+        "price": row["price"],
+        "image": row["image"],
+    }
+
+
+@app.post("/api/orders")
+def place_order():
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    with get_connection() as connection:
+        cart_rows = connection.execute(
+            "SELECT name, restaurant, ingredients, price, image "
+            "FROM cart_items ORDER BY id"
+        ).fetchall()
+
+        if not cart_rows:
+            return (
+                jsonify(
+                    {
+                        "error": "Your cart is empty. Add items before placing an order."
+                    }
+                ),
+                400,
+            )
+
+        total = round(sum(row["price"] for row in cart_rows), 2)
+        cursor = connection.execute(
+            """
+            INSERT INTO orders (status, total, created_at)
+            VALUES ('Received', ?, ?)
+            """,
+            (total, created_at),
+        )
+        order_id = cursor.lastrowid
+        connection.executemany(
+            """
+            INSERT INTO order_items (
+                order_id, name, restaurant, ingredients, price, image
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    order_id,
+                    row["name"],
+                    row["restaurant"],
+                    row["ingredients"],
+                    row["price"],
+                    row["image"],
+                )
+                for row in cart_rows
+            ],
+        )
+        connection.execute("DELETE FROM cart_items")
+
+        saved_order = connection.execute(
+            "SELECT id, status, total, created_at FROM orders WHERE id = ?",
+            (order_id,),
+        ).fetchone()
+        saved_items = connection.execute(
+            """
+            SELECT name, restaurant, ingredients, price, image
+            FROM order_items
+            WHERE order_id = ?
+            ORDER BY id
+            """,
+            (order_id,),
+        ).fetchall()
+
+    return (
+        jsonify(
+            {
+                "id": saved_order["id"],
+                "status": saved_order["status"],
+                "total": saved_order["total"],
+                "createdAt": saved_order["created_at"],
+                "items": [order_item_from_row(row) for row in saved_items],
+            }
+        ),
+        201,
+    )
 
 
 initialize_database()

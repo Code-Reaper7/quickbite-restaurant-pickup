@@ -70,3 +70,6 @@ The local database file is excluded from Git tracking using `.gitignore`.
 Our team uses GitHub Projects to manage the Product Backlog, Sprint tasks, development progress, and code reviews.
 
 All features must meet the Definition of Done before being marked as completed.
+The Flask backend stores cart items and pickup orders in the local `quickbite.db`
+SQLite file. The database is created automatically the first time the app starts.
+Each placed order is saved with a unique order ID and an initial status of Received.
