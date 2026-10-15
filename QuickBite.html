@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuickBite</title>
+    <style>
+      :root {
+        --ink: #202124;
+        --muted: #74777d;
+        --line: #ececec;
+        --surface: #ffffff;
+        --background: #f8f8f7;
+        --accent: #f4512c;
+        --accent-dark: #d83d1c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--ink);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      button {
+        color: inherit;
+        font: inherit;
+      }
+
+      .app {
+        margin: 0 auto;
+        max-width: 620px;
+        min-height: 100vh;
+        background: var(--surface);
+        box-shadow: 0 0 30px rgba(25, 25, 25, 0.06);
+      }
+
+      .topbar {
+        align-items: center;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        padding: 18px 20px;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+      }
+
+      .brand {
+        align-items: center;
+        display: flex;
+        gap: 9px;
+      }
+
+      .brand-mark {
+        align-items: center;
+        background: var(--accent);
+        border-radius: 10px;
+        color: white;
+        display: flex;
+        font-size: 17px;
+        font-weight: 800;
+        height: 34px;
+        justify-content: center;
+        width: 34px;
+      }
+
+      .brand-name {
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.6px;
+      }
+
+      .cart-button {
+        align-items: center;
+        background: #fff4f0;
+        border: 0;
+        border-radius: 12px;
+        cursor: pointer;
+        display: flex;
+        height: 42px;
+        justify-content: center;
+        position: relative;
+        width: 42px;
+      }
+
+      .cart-button:hover {
+        background: #ffe7df;
+      }
+
+      .cart-button svg {
+        fill: none;
+        height: 21px;
+        stroke: var(--accent);
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2;
+        width: 21px;
+      }
+
+      .cart-count {
+        align-items: center;
+        background: var(--accent);
+        border: 2px solid white;
+        border-radius: 20px;
+        color: white;
+        display: none;
+        font-size: 10px;
+        font-weight: 800;
+        height: 19px;
+        justify-content: center;
+        position: absolute;
+        right: -5px;
+        top: -5px;
+        width: 19px;
+      }
+
+      main {
+        padding: 25px 20px 30px;
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 1.1px;
+        margin: 0 0 7px;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        font-size: clamp(28px, 8vw, 38px);
+        letter-spacing: -1.2px;
+        line-height: 1.08;
+        margin: 0;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 9px 0 25px;
+      }
+
+      .restaurant-list,
+      .menu-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .restaurant-card {
+        align-items: center;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        cursor: pointer;
+        display: flex;
+        gap: 14px;
+        padding: 13px;
+        text-align: left;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s,
+          transform 0.2s;
+        width: 100%;
+      }
+
+      .restaurant-card:hover {
+        border-color: #ffd0c3;
+        box-shadow: 0 7px 18px rgba(34, 34, 34, 0.07);
+        transform: translateY(-1px);
+      }
+
+      .restaurant-logo {
+        align-items: center;
+        border-radius: 13px;
+        color: white;
+        display: flex;
+        flex: 0 0 58px;
+        font-size: 18px;
+        font-weight: 800;
+        height: 58px;
+        justify-content: center;
+      }
+
+      .restaurant-info {
+        min-width: 0;
+      }
+
+      .restaurant-name {
+        font-size: 16px;
+        font-weight: 750;
+        margin: 0 0 5px;
+      }
+
+      .restaurant-meta {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0;
+      }
+
+      .restaurant-arrow {
+        color: #b5b5b5;
+        font-size: 22px;
+        margin-left: auto;
+      }
+
+      .menu-header {
+        align-items: flex-start;
+        display: flex;
+        gap: 13px;
+        margin-bottom: 24px;
+      }
+
+      .back-button {
+        background: #f3f3f3;
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 22px;
+        height: 38px;
+        line-height: 1;
+        width: 38px;
+      }
+
+      .back-button:hover {
+        background: #e8e8e8;
+      }
+
+      .menu-title {
+        font-size: 28px;
+        letter-spacing: -0.8px;
+        margin: 0;
+      }
+
+      .menu-subtitle {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 5px 0 0;
+      }
+
+      .meal-card {
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        display: flex;
+        gap: 13px;
+        padding: 12px;
+      }
+
+      .meal-image {
+        align-items: center;
+        background: #fff1eb;
+        border-radius: 11px;
+        display: flex;
+        flex: 0 0 72px;
+        font-size: 30px;
+        height: 72px;
+        justify-content: center;
+      }
+
+      .meal-details {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .meal-name {
+        font-size: 15px;
+        font-weight: 750;
+        margin: 0 0 4px;
+      }
+
+      .meal-ingredients {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+        margin: 0 0 7px;
+      }
+
+      .meal-price {
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 800;
+        margin: 0;
+      }
+
+      .add-button {
+        background: #fff4f0;
+        border: 0;
+        border-radius: 9px;
+        color: var(--accent-dark);
+        cursor: pointer;
+        flex: 0 0 auto;
+        font-size: 20px;
+        font-weight: 500;
+        height: 34px;
+        line-height: 1;
+        width: 34px;
+      }
+
+      .add-button:hover {
+        background: var(--accent);
+        color: white;
+      }
+
+      .cart-panel {
+        background: white;
+        border-top: 1px solid var(--line);
+        bottom: 0;
+        box-shadow: 0 -10px 30px rgba(30, 30, 30, 0.1);
+        display: none;
+        left: 50%;
+        max-height: 70vh;
+        overflow-y: auto;
+        padding: 21px 20px 25px;
+        position: fixed;
+        transform: translateX(-50%);
+        width: min(620px, 100%);
+        z-index: 10;
+      }
+
+      .cart-panel.open {
+        display: block;
+      }
+
+      .cart-heading {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      .cart-heading h2 {
+        font-size: 20px;
+        margin: 0;
+      }
+
+      .close-cart {
+        background: #f4f4f4;
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 18px;
+        height: 30px;
+        width: 30px;
+      }
+
+      .cart-empty {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 5px 0;
+      }
+
+      .cart-item {
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+      }
+
+      .cart-item-name {
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .cart-item-restaurant {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 3px;
+      }
+
+      .cart-item-price {
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 750;
+      }
+
+      .cart-total {
+        display: flex;
+        font-size: 16px;
+        font-weight: 800;
+        justify-content: space-between;
+        padding-top: 16px;
+      }
+
+      @media (min-width: 621px) {
+        body {
+          padding: 20px 0;
+        }
+
+        .app {
+          border-radius: 20px;
+          overflow: hidden;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">Q</div>
+          <div class="brand-name">QuickBite</div>
+        </div>
+        <button class="cart-button" id="cartButton" aria-label="Open cart">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M3 5h2l2.2 10.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 1.9-1.5L20.5 8H6"
+            ></path>
+            <circle cx="10" cy="20" r="1"></circle>
+            <circle cx="18" cy="20" r="1"></circle>
+          </svg>
+          <span class="cart-count" id="cartCount">0</span>
+        </button>
+      </header>
+
+      <main id="appContent"></main>
+    </div>
+
+    <aside class="cart-panel" id="cartPanel" aria-label="Shopping cart">
+      <div class="cart-heading">
+        <h2>Your cart</h2>
+        <button class="close-cart" id="closeCart" aria-label="Close cart">
+          &times;
+        </button>
+      </div>
+      <div id="cartItems"></div>
+      <div class="cart-total" id="cartTotal"></div>
+    </aside>
+
+    <script>
+      let restaurants = [];
+
+      let selectedRestaurant = null;
+      const cart = [];
+      const appContent = document.getElementById("appContent");
+      const cartPanel = document.getElementById("cartPanel");
+      const cartItems = document.getElementById("cartItems");
+      const cartTotal = document.getElementById("cartTotal");
+      const cartCount = document.getElementById("cartCount");
+
+      function showRestaurants() {
+        selectedRestaurant = null;
+        appContent.innerHTML = `
+        <p class="eyebrow">Pickup near you</p>
+        <h1>What are you craving?</h1>
+        <p class="subtitle">Restaurants near 125 Market Street</p>
+        <section class="restaurant-list" aria-label="Nearby restaurants">
+          ${restaurants
+            .map(
+              (restaurant, index) => `
+            <button class="restaurant-card" data-restaurant="${index}">
+              <span class="restaurant-logo" style="background: ${restaurant.color}">${restaurant.initials}</span>
+              <span class="restaurant-info">
+                <span class="restaurant-name">${restaurant.name}</span>
+                <span class="restaurant-meta">${restaurant.type} &nbsp;·&nbsp; ${restaurant.distance}</span>
+              </span>
+              <span class="restaurant-arrow" aria-hidden="true">›</span>
+            </button>
+          `,
+            )
+            .join("")}
+        </section>
+      `;
+
+        document.querySelectorAll("[data-restaurant]").forEach((card) => {
+          card.addEventListener("click", () =>
+            showMenu(Number(card.dataset.restaurant)),
+          );
+        });
+      }
+
+      function showMenu(index) {
+        selectedRestaurant = restaurants[index];
+        appContent.innerHTML = `
+        <div class="menu-header">
+          <button class="back-button" id="backButton" aria-label="Back to restaurants">‹</button>
+          <div>
+            <p class="eyebrow">${selectedRestaurant.type}</p>
+            <h1 class="menu-title">${selectedRestaurant.name}</h1>
+            <p class="menu-subtitle">${selectedRestaurant.distance}</p>
+          </div>
+        </div>
+        <section class="menu-list" aria-label="${selectedRestaurant.name} menu">
+          ${selectedRestaurant.meals
+            .map(
+              (meal, mealIndex) => `
+            <article class="meal-card">
+              <div class="meal-image" aria-label="Meal image placeholder">${meal.image}</div>
+              <div class="meal-details">
+                <h2 class="meal-name">${meal.name}</h2>
+                <p class="meal-ingredients">${meal.ingredients}</p>
+                <p class="meal-price">$${meal.price.toFixed(2)}</p>
+              </div>
+              <button class="add-button" data-meal="${mealIndex}" aria-label="Add ${meal.name} to cart">+</button>
+            </article>
+          `,
+            )
+            .join("")}
+        </section>
+      `;
+
+        document
+          .getElementById("backButton")
+          .addEventListener("click", showRestaurants);
+        document.querySelectorAll("[data-meal]").forEach((button) => {
+          button.addEventListener("click", () =>
+            addToCart(selectedRestaurant.meals[Number(button.dataset.meal)]),
+          );
+        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      async function addToCart(meal) {
+        const response = await fetch("/api/cart", {
+          body: JSON.stringify({
+            ...meal,
+            restaurant: selectedRestaurant.name,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          throw new Error("Could not add this meal to the cart.");
+        }
+
+        cart.push(await response.json());
+        updateCart();
+      }
+
+      function updateCart() {
+        cartCount.textContent = cart.length;
+        cartCount.style.display = cart.length ? "flex" : "none";
+        cartItems.innerHTML = cart.length
+          ? cart
+              .map(
+                (item) => `
+            <div class="cart-item">
+              <div>
+                <div class="cart-item-name">${item.name}</div>
+                <div class="cart-item-restaurant">${item.restaurant}</div>
+              </div>
+              <div class="cart-item-price">$${item.price.toFixed(2)}</div>
+            </div>
+          `,
+              )
+              .join("")
+          : '<p class="cart-empty">Your cart is empty.</p>';
+
+        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        cartTotal.innerHTML = cart.length
+          ? `<span>Total</span><span>$${total.toFixed(2)}</span>`
+          : "";
+      }
+
+      document.getElementById("cartButton").addEventListener("click", () => {
+        cartPanel.classList.toggle("open");
+      });
+
+      document.getElementById("closeCart").addEventListener("click", () => {
+        cartPanel.classList.remove("open");
+      });
+
+      async function loadCart() {
+        const response = await fetch("/api/cart");
+
+        if (!response.ok) {
+          throw new Error("Could not load the cart.");
+        }
+
+        cart.push(...(await response.json()));
+        updateCart();
+      }
+
+      async function loadRestaurants() {
+        const response = await fetch("/api/restaurants");
+
+        if (!response.ok) {
+          throw new Error("Could not load restaurants.");
+        }
+
+        restaurants = await response.json();
+        showRestaurants();
+      }
+
+      function showStorageError(error) {
+        console.error(error);
+        cartItems.innerHTML =
+          '<p class="cart-empty">Cart storage is unavailable. Start QuickBite with Flask to use the cart.</p>';
+      }
+
+      function showRestaurantError(error) {
+        console.error(error);
+        appContent.innerHTML =
+          '<p class="cart-empty">Restaurants are unavailable. Start QuickBite with Flask to browse the menu.</p>';
+      }
+
+      loadCart().catch(showStorageError);
+      loadRestaurants().catch(showRestaurantError);
+    </script>
+  </body>
+</html>
