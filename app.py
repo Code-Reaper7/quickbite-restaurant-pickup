@@ -239,11 +239,19 @@ def add_cart_item():
     return jsonify(cart_item_from_row(saved_item)), 201
 
 
-@app.delete("/api/cart")
-def clear_cart():
+@app.delete("/api/cart/<int:item_id>")
+def remove_cart_item(item_id):
     cart_id = current_cart_id()
+
     with get_connection() as connection:
-        connection.execute("DELETE FROM cart_items WHERE cart_id = ?", (cart_id,))
+        result = connection.execute(
+            "DELETE FROM cart_items WHERE id = ? AND cart_id = ?",
+            (item_id, cart_id)
+        )
+
+    if result.rowcount == 0:
+        return jsonify({"error": "Item not found in your cart"}), 404
+
     return "", 204
 
 

@@ -388,6 +388,33 @@
         font-weight: 750;
       }
 
+      .cart-item-actions {
+        align-items: flex-end;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        gap: 6px;
+      }
+
+      .remove-button {
+        background: #fff4f0;
+        border: 1px solid #ffd6cb;
+        border-radius: 7px;
+        color: var(--accent-dark);
+        cursor: pointer;
+        font-size: 12px;
+        padding: 5px 9px;
+      }
+
+      .remove-button:hover {
+        background: #ffe7df;
+      }
+
+      .remove-button:disabled {
+        cursor: wait;
+        opacity: 0.5;
+      }
+
       .cart-total {
         display: flex;
         font-size: 16px;
@@ -565,7 +592,10 @@
                 <div class="cart-item-name">${item.name}</div>
                 <div class="cart-item-restaurant">${item.restaurant} · Qty: ${item.quantity}</div>
               </div>
-              <div class="cart-item-price">$${(item.price * item.quantity).toFixed(2)}</div>
+              <div class="cart-item-actions">
+                <div class="cart-item-price">$${(item.price * item.quantity).toFixed(2)}</div>
+                <button type="button" class="remove-button" data-remove-id="${item.id}" aria-label="Remove one ${item.name} from cart">Remove 1</button>
+              </div>
             </div>
           `,
               )
@@ -577,6 +607,36 @@
           ? `<span>Total</span><span>$${total.toFixed(2)}</span>`
           : "";
       }
+
+      // Since each addition is its own database record, remove one item per click.
+      // Delegation also works for newly rendered cart rows.
+      cartItems.addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-remove-id]");
+        if (!button) return;
+
+        const itemId = Number(button.dataset.removeId);
+        button.disabled = true;
+
+        try {
+          const response = await fetch(`/api/cart/${itemId}`, {
+            method: "DELETE",
+          });
+
+          if (!response.ok) {
+            throw new Error("Could not remove the cart item.");
+          }
+
+          const index = cart.findIndex((item) => item.id === itemId);
+          if (index !== -1) {
+            cart.splice(index, 1);
+          }
+          updateCart();
+        } catch (error) {
+          console.error(error);
+          alert("Could not remove the item. Please try again.");
+          button.disabled = false;
+        }
+      });
 
       document.getElementById("cartButton").addEventListener("click", () => {
         cartPanel.classList.toggle("open");
