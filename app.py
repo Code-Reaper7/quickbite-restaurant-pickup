@@ -257,6 +257,18 @@ def remove_cart_item(item_id):
 
 initialize_database()
 
+@app.delete("/api/cart")
+def clear_cart():
+    cart_id = current_cart_id()
+
+    with get_connection() as connection:
+        connection.execute(
+            "DELETE FROM cart_items WHERE cart_id = ?",
+            (cart_id,)
+        )
+
+    return "", 204
+
 
 if __name__ == "__main__":
     app.run(debug=True)
