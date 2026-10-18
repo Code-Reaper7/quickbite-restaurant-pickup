@@ -180,10 +180,18 @@ def initialize_database():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 status TEXT NOT NULL,
                 total REAL NOT NULL CHECK (total >= 0),
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                pickup_time TEXT
             )
             """
         )
+        # Preserve existing orders when upgrading an older local database.
+        order_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(orders)")
+        }
+        if "pickup_time" not in order_columns:
+            connection.execute("ALTER TABLE orders ADD COLUMN pickup_time TEXT")
+
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS order_items (
@@ -316,7 +324,33 @@ def order_item_from_row(row):
 
 @app.post("/api/orders")
 def place_order():
-    created_at = datetime.now(timezone.utc).isoformat()
+    # The browser sends an ISO 8601 time with timezone information.
+    # Never trust the client-only date picker to validate the time.
+    payload = request.get_json(silent=True)
+    pickup_value = payload.get("pickupTime") if isinstance(payload, dict) else None
+    if not isinstance(pickup_value, str):
+        return jsonify({"error": "Please select a pickup date and time."}), 400
+
+    try:
+        pickup_time = datetime.fromisoformat(pickup_value.replace("Z", "+00:00"))
+    except ValueError:
+        return jsonify({"error": "Please enter a valid pickup date and time."}), 400
+
+    if pickup_time.tzinfo is None or pickup_time.utcoffset() is None:
+        return jsonify({"error": "Pickup time must include a timezone."}), 400
+
+    now = datetime.now(timezone.utc)
+    pickup_utc = pickup_time.astimezone(timezone.utc)
+    if pickup_utc < now + timedelta(minutes=30) or pickup_utc > now + timedelta(days=7):
+        return jsonify({
+            "error": "Choose a pickup time at least 30 minutes from now, within 7 days."
+        }), 400
+
+    if pickup_utc.minute % 15 != 0 or pickup_utc.second != 0 or pickup_utc.microsecond != 0:
+        return jsonify({"error": "Choose a pickup time in 15-minute increments."}), 400
+
+    created_at = now.isoformat()
+    pickup_time_iso = pickup_utc.isoformat()
     cart_id = current_cart_id()
 
     with get_connection() as connection:
@@ -339,10 +373,10 @@ def place_order():
         total = round(sum(row["price"] for row in cart_rows), 2)
         cursor = connection.execute(
             """
-            INSERT INTO orders (status, total, created_at)
-            VALUES ('Received', ?, ?)
+            INSERT INTO orders (status, total, created_at, pickup_time)
+            VALUES ('Received', ?, ?, ?)
             """,
-            (total, created_at),
+            (total, created_at, pickup_time_iso),
         )
         order_id = cursor.lastrowid
         connection.executemany(
@@ -369,7 +403,8 @@ def place_order():
         )
 
         saved_order = connection.execute(
-            "SELECT id, status, total, created_at FROM orders WHERE id = ?",
+            "SELECT id, status, total, created_at, pickup_time "
+            "FROM orders WHERE id = ?",
             (order_id,),
         ).fetchone()
         saved_items = connection.execute(
@@ -389,6 +424,7 @@ def place_order():
                 "status": saved_order["status"],
                 "total": saved_order["total"],
                 "createdAt": saved_order["created_at"],
+                "pickupTime": saved_order["pickup_time"],
                 "items": [order_item_from_row(row) for row in saved_items],
             }
         ),
