@@ -414,12 +414,6 @@
         cursor: wait;
         opacity: 0.5;
       }
-      .cart-note {
-        color: var(--muted);
-        font-size: 13px;
-        line-height: 1.4;
-        margin: -6px 0 12px;
-      }
 
       .cart-total {
         display: flex;
@@ -427,6 +421,51 @@
         font-weight: 800;
         justify-content: space-between;
         padding-top: 16px;
+      }
+
+      .cart-note {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+        margin: -6px 0 12px;
+      }
+
+      .pickup-section {
+        background: #fff8f5;
+        border: 1px solid #ffe1d7;
+        border-radius: 12px;
+        margin-top: 16px;
+        padding: 12px;
+      }
+
+      .pickup-label {
+        display: block;
+        font-size: 14px;
+        font-weight: 750;
+        margin-bottom: 8px;
+      }
+
+      .pickup-input {
+        background: white;
+        border: 1px solid #d9d9d9;
+        border-radius: 8px;
+        color: var(--ink);
+        font: inherit;
+        font-size: 14px;
+        padding: 10px;
+        width: 100%;
+      }
+
+      .pickup-input:focus {
+        border-color: var(--accent);
+        outline: 2px solid #ffd8ca;
+      }
+
+      .pickup-hint {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+        margin: 8px 0 0;
       }
 
       .place-order,
@@ -575,17 +614,24 @@
       </p>
       <div id="cartItems"></div>
       <div class="cart-total" id="cartTotal"></div>
+      <div class="pickup-section" id="pickupSection" hidden>
+        <label class="pickup-label" for="pickupTime">Preferred pickup date and time</label>
+        <input
+          class="pickup-input"
+          id="pickupTime"
+          type="datetime-local"
+          step="900"
+          required
+        />
+        <p class="pickup-hint">Choose a time at least 30 minutes from now, within the next 7 days (15-minute slots).</p>
+      </div>
       <button class="place-order" id="placeOrder" type="button" disabled>
         Place pickup order
       </button>
       <p class="order-error" id="orderError" hidden></p>
     </aside>
 
-    <dialog
-      class="order-dialog"
-      id="orderDialog"
-      aria-labelledby="confirmationTitle"
-    >
+    <dialog class="order-dialog" id="orderDialog" aria-labelledby="confirmationTitle">
       <div class="confirmation-mark" aria-hidden="true">✓</div>
       <p class="eyebrow">Pickup order</p>
       <h2 class="confirmation-title" id="confirmationTitle">
@@ -608,6 +654,10 @@
           <dt>Total</dt>
           <dd id="confirmationTotal"></dd>
         </div>
+        <div>
+          <dt>Pickup time</dt>
+          <dd id="confirmationPickupTime"></dd>
+        </div>
       </dl>
       <div id="confirmationItems"></div>
       <button class="confirmation-done" id="confirmationDone" type="button">
@@ -625,13 +675,17 @@
       const cartItems = document.getElementById("cartItems");
       const cartTotal = document.getElementById("cartTotal");
       const cartCount = document.getElementById("cartCount");
+
       const cartNote = document.getElementById("cartNote");
+      const pickupSection = document.getElementById("pickupSection");
+      const pickupTimeInput = document.getElementById("pickupTime");
       const placeOrderButton = document.getElementById("placeOrder");
       const orderError = document.getElementById("orderError");
       const orderDialog = document.getElementById("orderDialog");
       const confirmationId = document.getElementById("confirmationId");
       const confirmationStatus = document.getElementById("confirmationStatus");
       const confirmationTotal = document.getElementById("confirmationTotal");
+      const confirmationPickupTime = document.getElementById("confirmationPickupTime");
       const confirmationItems = document.getElementById("confirmationItems");
       let placingOrder = false;
 
@@ -725,6 +779,21 @@
         updateCart();
       }
 
+      function localDateTimeValue(date) {
+        const pad = (part) => String(part).padStart(2, "0");
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      }
+
+      function updatePickupLimits() {
+        // Display times in the customer's browser timezone.
+        const soonest = new Date(Date.now() + 30 * 60 * 1000);
+        soonest.setMinutes(Math.ceil(soonest.getMinutes() / 15) * 15, 0, 0);
+        const latest = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        latest.setSeconds(0, 0);
+        pickupTimeInput.min = localDateTimeValue(soonest);
+        pickupTimeInput.max = localDateTimeValue(latest);
+      }
+
       function updateCart() {
         // Store one row per addition, but show repeated items as quantities.
         const groupedItems = new Map();
@@ -740,7 +809,8 @@
         cartCount.textContent = cart.length;
         cartCount.style.display = cart.length ? "flex" : "none";
         cartNote.hidden = cart.length === 0;
-        placeOrderButton.disabled = placingOrder || cart.length === 0;
+        pickupSection.hidden = cart.length === 0;
+        placeOrderButton.disabled = placingOrder || cart.length === 0 || !pickupTimeInput.value;
         cartItems.innerHTML = cart.length
           ? [...groupedItems.values()]
               .map(
@@ -752,7 +822,7 @@
               </div>
               <div class="cart-item-actions">
                 <div class="cart-item-price">$${(item.price * item.quantity).toFixed(2)}</div>
-                <button type="button" class="remove-button" data-remove-id="${item.id}" aria-label="Remove one ${item.name} from cart">Remove 1</button>
+                <button type="button" class="remove-button" data-remove-id="${item.id}" ${placingOrder ? "disabled" : ""} aria-label="Remove one ${item.name} from cart">Remove 1</button>
               </div>
             </div>
           `,
@@ -766,35 +836,6 @@
           : "";
       }
 
-      // Since each addition is its own database record, remove one item per click.
-      // Delegation also works for newly rendered cart rows.
-      cartItems.addEventListener("click", async (event) => {
-        const button = event.target.closest("[data-remove-id]");
-        if (!button) return;
-
-        const itemId = Number(button.dataset.removeId);
-        button.disabled = true;
-
-        try {
-          const response = await fetch(`/api/cart/${itemId}`, {
-            method: "DELETE",
-          });
-
-          if (!response.ok) {
-            throw new Error("Could not remove the cart item.");
-          }
-
-          const index = cart.findIndex((item) => item.id === itemId);
-          if (index !== -1) {
-            cart.splice(index, 1);
-          }
-          updateCart();
-        } catch (error) {
-          console.error(error);
-          alert("Could not remove the item. Please try again.");
-          button.disabled = false;
-        }
-      });
       function clearOrderError() {
         orderError.hidden = true;
         orderError.textContent = "";
@@ -804,6 +845,10 @@
         confirmationId.textContent = `#${order.id}`;
         confirmationStatus.textContent = order.status;
         confirmationTotal.textContent = `$${Number(order.total).toFixed(2)}`;
+        confirmationPickupTime.textContent = new Date(order.pickupTime).toLocaleString([], {
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
         confirmationItems.replaceChildren();
 
         order.items.forEach((item) => {
@@ -835,12 +880,31 @@
           return;
         }
 
+        updatePickupLimits();
+        const pickupAt = new Date(pickupTimeInput.value);
+        const pickupTimestamp = pickupAt.getTime();
+        if (
+          !pickupTimeInput.value ||
+          !Number.isFinite(pickupTimestamp) ||
+          pickupTimestamp < Date.now() + 30 * 60 * 1000 ||
+          pickupTimestamp > Date.now() + 7 * 24 * 60 * 60 * 1000 ||
+          pickupAt.getMinutes() % 15 !== 0
+        ) {
+          orderError.textContent = "Please select a valid pickup time at least 30 minutes from now, within 7 days, in 15-minute increments.";
+          orderError.hidden = false;
+          return;
+        }
+
         placingOrder = true;
         clearOrderError();
         updateCart();
 
         try {
-          const response = await fetch("/api/orders", { method: "POST" });
+          const response = await fetch("/api/orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pickupTime: pickupAt.toISOString() }),
+          });
           const payload = await response.json().catch(() => ({}));
 
           if (!response.ok) {
@@ -851,6 +915,7 @@
           }
 
           cart.length = 0;
+          pickupTimeInput.value = "";
           updateCart();
           cartPanel.classList.remove("open");
           showOrderConfirmation(payload);
@@ -865,7 +930,38 @@
         }
       }
 
+      // Since each addition is its own database record, remove one item per click.
+      // Delegation also works for newly rendered cart rows.
+      cartItems.addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-remove-id]");
+        if (!button || placingOrder) return;
+
+        const itemId = Number(button.dataset.removeId);
+        button.disabled = true;
+
+        try {
+          const response = await fetch(`/api/cart/${itemId}`, {
+            method: "DELETE",
+          });
+
+          if (!response.ok) {
+            throw new Error("Could not remove the cart item.");
+          }
+
+          const index = cart.findIndex((item) => item.id === itemId);
+          if (index !== -1) {
+            cart.splice(index, 1);
+          }
+          updateCart();
+        } catch (error) {
+          console.error(error);
+          alert("Could not remove the item. Please try again.");
+          button.disabled = false;
+        }
+      });
+
       document.getElementById("cartButton").addEventListener("click", () => {
+        updatePickupLimits();
         cartPanel.classList.toggle("open");
       });
 
@@ -873,17 +969,22 @@
         cartPanel.classList.remove("open");
       });
 
+      pickupTimeInput.addEventListener("input", () => {
+        clearOrderError();
+        updateCart();
+      });
+
+      updatePickupLimits();
+
       placeOrderButton.addEventListener("click", () => {
         placeOrder().catch((error) => {
           console.error(error);
         });
       });
 
-      document
-        .getElementById("confirmationDone")
-        .addEventListener("click", () => {
-          orderDialog.close();
-        });
+      document.getElementById("confirmationDone").addEventListener("click", () => {
+        orderDialog.close();
+      });
 
       async function loadCart() {
         const response = await fetch("/api/cart");

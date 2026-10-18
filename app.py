@@ -1,7 +1,6 @@
 import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
 import sqlite3
 from datetime import timedelta
 from pathlib import Path
@@ -138,6 +137,7 @@ def get_connection():
         connection.close()
 
 
+
 def current_cart_id():
     """Identify a browser's cart using its signed Flask session cookie."""
     if "cart_id" not in session:
@@ -161,16 +161,37 @@ def initialize_database():
             )
             """
         )
+
+        # Support a database created by the previous version of QuickBite.
+        # Older cart items will have NULL cart_id and won't appear in new carts.
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(cart_items)")
+        }
+        if "cart_id" not in columns:
+            connection.execute("ALTER TABLE cart_items ADD COLUMN cart_id TEXT")
+
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id "
+            "ON cart_items(cart_id)"
+        )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 status TEXT NOT NULL,
                 total REAL NOT NULL CHECK (total >= 0),
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                pickup_time TEXT
             )
             """
         )
+        # Preserve existing orders when upgrading an older local database.
+        order_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(orders)")
+        }
+        if "pickup_time" not in order_columns:
+            connection.execute("ALTER TABLE orders ADD COLUMN pickup_time TEXT")
+
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS order_items (
@@ -184,19 +205,6 @@ def initialize_database():
                 FOREIGN KEY (order_id) REFERENCES orders (id)
             )
             """
-        )
-
-        # Support a database created by the previous version of QuickBite.
-        # Older cart items will have NULL cart_id and won't appear in new carts.
-        columns = {
-            row["name"] for row in connection.execute("PRAGMA table_info(cart_items)")
-        }
-        if "cart_id" not in columns:
-            connection.execute("ALTER TABLE cart_items ADD COLUMN cart_id TEXT")
-
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id "
-            "ON cart_items(cart_id)"
         )
 
 
@@ -291,6 +299,19 @@ def remove_cart_item(item_id):
     return "", 204
 
 
+@app.delete("/api/cart")
+def clear_cart():
+    cart_id = current_cart_id()
+
+    with get_connection() as connection:
+        connection.execute(
+            "DELETE FROM cart_items WHERE cart_id = ?",
+            (cart_id,)
+        )
+
+    return "", 204
+
+
 def order_item_from_row(row):
     return {
         "name": row["name"],
@@ -303,12 +324,40 @@ def order_item_from_row(row):
 
 @app.post("/api/orders")
 def place_order():
-    created_at = datetime.now(timezone.utc).isoformat()
+    # The browser sends an ISO 8601 time with timezone information.
+    # Never trust the client-only date picker to validate the time.
+    payload = request.get_json(silent=True)
+    pickup_value = payload.get("pickupTime") if isinstance(payload, dict) else None
+    if not isinstance(pickup_value, str):
+        return jsonify({"error": "Please select a pickup date and time."}), 400
+
+    try:
+        pickup_time = datetime.fromisoformat(pickup_value.replace("Z", "+00:00"))
+    except ValueError:
+        return jsonify({"error": "Please enter a valid pickup date and time."}), 400
+
+    if pickup_time.tzinfo is None or pickup_time.utcoffset() is None:
+        return jsonify({"error": "Pickup time must include a timezone."}), 400
+
+    now = datetime.now(timezone.utc)
+    pickup_utc = pickup_time.astimezone(timezone.utc)
+    if pickup_utc < now + timedelta(minutes=30) or pickup_utc > now + timedelta(days=7):
+        return jsonify({
+            "error": "Choose a pickup time at least 30 minutes from now, within 7 days."
+        }), 400
+
+    if pickup_utc.minute % 15 != 0 or pickup_utc.second != 0 or pickup_utc.microsecond != 0:
+        return jsonify({"error": "Choose a pickup time in 15-minute increments."}), 400
+
+    created_at = now.isoformat()
+    pickup_time_iso = pickup_utc.isoformat()
+    cart_id = current_cart_id()
 
     with get_connection() as connection:
         cart_rows = connection.execute(
             "SELECT name, restaurant, ingredients, price, image "
-            "FROM cart_items ORDER BY id"
+            "FROM cart_items WHERE cart_id = ? ORDER BY id",
+            (cart_id,),
         ).fetchall()
 
         if not cart_rows:
@@ -324,10 +373,10 @@ def place_order():
         total = round(sum(row["price"] for row in cart_rows), 2)
         cursor = connection.execute(
             """
-            INSERT INTO orders (status, total, created_at)
-            VALUES ('Received', ?, ?)
+            INSERT INTO orders (status, total, created_at, pickup_time)
+            VALUES ('Received', ?, ?, ?)
             """,
-            (total, created_at),
+            (total, created_at, pickup_time_iso),
         )
         order_id = cursor.lastrowid
         connection.executemany(
@@ -349,10 +398,13 @@ def place_order():
                 for row in cart_rows
             ],
         )
-        connection.execute("DELETE FROM cart_items")
+        connection.execute(
+            "DELETE FROM cart_items WHERE cart_id = ?", (cart_id,)
+        )
 
         saved_order = connection.execute(
-            "SELECT id, status, total, created_at FROM orders WHERE id = ?",
+            "SELECT id, status, total, created_at, pickup_time "
+            "FROM orders WHERE id = ?",
             (order_id,),
         ).fetchone()
         saved_items = connection.execute(
@@ -372,6 +424,7 @@ def place_order():
                 "status": saved_order["status"],
                 "total": saved_order["total"],
                 "createdAt": saved_order["created_at"],
+                "pickupTime": saved_order["pickup_time"],
                 "items": [order_item_from_row(row) for row in saved_items],
             }
         ),
@@ -380,18 +433,6 @@ def place_order():
 
 
 initialize_database()
-
-@app.delete("/api/cart")
-def clear_cart():
-    cart_id = current_cart_id()
-
-    with get_connection() as connection:
-        connection.execute(
-            "DELETE FROM cart_items WHERE cart_id = ?",
-            (cart_id,)
-        )
-
-    return "", 204
 
 
 if __name__ == "__main__":
